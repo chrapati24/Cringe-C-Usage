@@ -1,3 +1,5 @@
+// Just a test. Unused.
+
 #pragma once
 
 int twoValues(int value_one, int value_two)
