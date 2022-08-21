@@ -1,1 +1,0 @@
--c main.c -o objects/main.o | -c functions.h -o objects/functions.o > functions.exe objects/main.o objects/functions.o

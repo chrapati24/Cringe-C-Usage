@@ -1,0 +1,15 @@
+;Register Cwc before using a .cwmake (Thanks to Meaxy)
+>
+-{_sOpt}="Debug"
+>
+-{_wToolchain}= VLianceTool/LibRT
+>
+-{pOut}= output/{_sPlatform}/
+-{pObj}= obj/{_sPlatform}/
+>
+-c src/ -o {pObj}
+>
+-o  {pObj} -#To {pOut}functions.exe
+>
+-#Run
+>
