@@ -4,7 +4,7 @@
 int main()
 {
     int exit = twoValues(15, 19);
-    return exit;
+    printf("%d\n", exit);
     return 0;
 }
 
