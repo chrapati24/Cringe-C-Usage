@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -198,7 +198,7 @@ static SDL_EVDEV_keyboard_state * kbd_cleanup_state = NULL;
 static int kbd_cleanup_sigactions_installed = 0;
 static int kbd_cleanup_atexit_installed = 0;
 
-static struct sigaction old_sigaction[NSIG];
+static struct sigaction old_sigaction[NSIG] = { 0 };
 
 static int fatal_signals[] =
 {
@@ -216,10 +216,11 @@ static void kbd_cleanup(void)
     }
     kbd_cleanup_state = NULL;
 
+    fprintf(stderr, "(SDL restoring keyboard) ");
     ioctl(kbd->console_fd, KDSKBMODE, kbd->old_kbd_mode);
 }
 
-static void
+void
 SDL_EVDEV_kbd_reraise_signal(int sig)
 {
     raise(sig);
@@ -344,7 +345,7 @@ SDL_EVDEV_kbd_init(void)
     SDL_EVDEV_keyboard_state *kbd;
     int i;
     char flag_state;
-    char shift_state[ sizeof (long) ] = {TIOCL_GETSHIFTSTATE, 0};
+    char shift_state[2] = {TIOCL_GETSHIFTSTATE, 0};
 
     kbd = (SDL_EVDEV_keyboard_state *)SDL_calloc(1, sizeof(*kbd));
     if (!kbd) {
@@ -354,7 +355,7 @@ SDL_EVDEV_kbd_init(void)
     kbd->npadch = -1;
 
     /* This might fail if we're not connected to a tty (e.g. on the Steam Link) */
-    kbd->console_fd = open("/dev/tty", O_RDONLY | O_CLOEXEC);
+    kbd->console_fd = open("/dev/tty", O_RDONLY);
 
     if (ioctl(kbd->console_fd, TIOCLINUX, shift_state) == 0) {
         kbd->shift_state = *shift_state;
@@ -386,7 +387,7 @@ SDL_EVDEV_kbd_init(void)
         }
 
         /* Allow inhibiting keyboard mute with env. variable for debugging etc. */
-        if (SDL_getenv("SDL_INPUT_LINUX_KEEP_KBD") == NULL) {
+        if (getenv("SDL_INPUT_LINUX_KEEP_KBD") == NULL) {
             /* Mute the keyboard so keystrokes only generate evdev events
              * and do not leak through to the console
              */
@@ -509,19 +510,17 @@ static unsigned int handle_diacr(SDL_EVDEV_keyboard_state *kbd, unsigned int ch)
 
 static int vc_kbd_led(SDL_EVDEV_keyboard_state *kbd, int flag)
 {
-    return (kbd->ledflagstate & flag) != 0;
+    return ((kbd->ledflagstate >> flag) & 1);
 }
 
 static void set_vc_kbd_led(SDL_EVDEV_keyboard_state *kbd, int flag)
 {
-    kbd->ledflagstate |= flag;
-    ioctl(kbd->console_fd, KDSETLED, (unsigned long)(kbd->ledflagstate));
+    kbd->ledflagstate |= 1 << flag;
 }
 
 static void clr_vc_kbd_led(SDL_EVDEV_keyboard_state *kbd, int flag)
 {
-    kbd->ledflagstate &= ~flag;
-    ioctl(kbd->console_fd, KDSETLED, (unsigned long)(kbd->ledflagstate));
+    kbd->ledflagstate &= ~(1 << flag);
 }
 
 static void chg_vc_kbd_lock(SDL_EVDEV_keyboard_state *kbd, int flag)
@@ -536,8 +535,7 @@ static void chg_vc_kbd_slock(SDL_EVDEV_keyboard_state *kbd, int flag)
 
 static void chg_vc_kbd_led(SDL_EVDEV_keyboard_state *kbd, int flag)
 {
-    kbd->ledflagstate ^= flag;
-    ioctl(kbd->console_fd, KDSETLED, (unsigned long)(kbd->ledflagstate));
+    kbd->ledflagstate ^= 1 << flag;
 }
 
 /*
@@ -819,7 +817,7 @@ SDL_EVDEV_kbd_keycode(SDL_EVDEV_keyboard_state *kbd, unsigned int keycode, int d
     }
 }
 
-#elif !defined(SDL_INPUT_FBSDKBIO) /* !SDL_INPUT_LINUXKD */
+#else /* !SDL_INPUT_LINUXKD */
 
 SDL_EVDEV_keyboard_state *
 SDL_EVDEV_kbd_init(void)

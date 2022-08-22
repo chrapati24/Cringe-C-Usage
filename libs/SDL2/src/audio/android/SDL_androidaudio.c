@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -24,6 +24,7 @@
 
 /* Output audio to Android */
 
+#include "SDL_assert.h"
 #include "SDL_audio.h"
 #include "../SDL_audio_c.h"
 #include "SDL_androidaudio.h"
@@ -36,10 +37,9 @@ static SDL_AudioDevice* audioDevice = NULL;
 static SDL_AudioDevice* captureDevice = NULL;
 
 static int
-ANDROIDAUDIO_OpenDevice(_THIS, const char *devname)
+ANDROIDAUDIO_OpenDevice(_THIS, void *handle, const char *devname, int iscapture)
 {
     SDL_AudioFormat test_format;
-    SDL_bool iscapture = this->iscapture;
 
     SDL_assert((captureDevice == NULL) || !iscapture);
     SDL_assert((audioDevice == NULL) || iscapture);
@@ -55,22 +55,39 @@ ANDROIDAUDIO_OpenDevice(_THIS, const char *devname)
         return SDL_OutOfMemory();
     }
 
-    for (test_format = SDL_FirstAudioFormat(this->spec.format); test_format; test_format = SDL_NextAudioFormat()) {
-        if ((test_format == AUDIO_U8) ||
-            (test_format == AUDIO_S16) ||
-            (test_format == AUDIO_F32)) {
+    test_format = SDL_FirstAudioFormat(this->spec.format);
+    while (test_format != 0) { /* no "UNKNOWN" constant */
+        if ((test_format == AUDIO_U8) || (test_format == AUDIO_S16LSB)) {
             this->spec.format = test_format;
             break;
         }
+        test_format = SDL_NextAudioFormat();
     }
 
-    if (!test_format) {
+    if (test_format == 0) {
         /* Didn't find a compatible format :( */
-        return SDL_SetError("%s: Unsupported audio format", "android");
+        return SDL_SetError("No compatible audio format!");
     }
 
-    if (Android_JNI_OpenAudioDevice(iscapture, &this->spec) < 0) {
-        return -1;
+    if (this->spec.channels > 1) {
+        this->spec.channels = 2;
+    } else {
+        this->spec.channels = 1;
+    }
+
+    if (this->spec.freq < 8000) {
+        this->spec.freq = 8000;
+    }
+    if (this->spec.freq > 48000) {
+        this->spec.freq = 48000;
+    }
+
+    /* TODO: pass in/return a (Java) device ID */
+    this->spec.samples = Android_JNI_OpenAudioDevice(iscapture, this->spec.freq, this->spec.format == AUDIO_U8 ? 0 : 1, this->spec.channels, this->spec.samples);
+
+    if (this->spec.samples == 0) {
+        /* Init failed? */
+        return SDL_SetError("Java-side initialization failed!");
     }
 
     SDL_CalculateAudioSpec(&this->spec);
@@ -119,7 +136,7 @@ ANDROIDAUDIO_CloseDevice(_THIS)
     SDL_free(this->hidden);
 }
 
-static SDL_bool
+static int
 ANDROIDAUDIO_Init(SDL_AudioDriverImpl * impl)
 {
     /* Set the function pointers */
@@ -132,14 +149,14 @@ ANDROIDAUDIO_Init(SDL_AudioDriverImpl * impl)
 
     /* and the capabilities */
     impl->HasCaptureSupport = SDL_TRUE;
-    impl->OnlyHasDefaultOutputDevice = SDL_TRUE;
-    impl->OnlyHasDefaultCaptureDevice = SDL_TRUE;
+    impl->OnlyHasDefaultOutputDevice = 1;
+    impl->OnlyHasDefaultCaptureDevice = 1;
 
-    return SDL_TRUE;   /* this audio target is available. */
+    return 1;   /* this audio target is available. */
 }
 
 AudioBootStrap ANDROIDAUDIO_bootstrap = {
-    "android", "SDL Android audio driver", ANDROIDAUDIO_Init, SDL_FALSE
+    "android", "SDL Android audio driver", ANDROIDAUDIO_Init, 0
 };
 
 /* Pause (block) all non already paused audio devices by taking their mixer lock */

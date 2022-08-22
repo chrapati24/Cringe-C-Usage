@@ -6,10 +6,27 @@
 >
 -{pOut}= output/{_sPlatform}/
 -{pObj}= obj/{_sPlatform}/
+-{vLink_Lib}=-L libs/SDL2/lib/x86/
 >
--c src/ -o {pObj}
+-c src/ -o {pObj}src/
+-I libs/SDL2/
 >
--o  {pObj} -#To {pOut}functions.exe
+-o  {pObj}src/ -#To {pOut}functions.exe
+-{vLink_Lib}
+-lSDL2main
+-lSDL2
+-lSDL2_image
+-lSDL2_ttf
+;-lSDL2_opengl
+-mwindows
+-mconsole
+;-lSDL2.dll
+;-lSDL2_image.dll
+>
+-#Copy SDL2.dll {pOut}SDL2.dll
+;-#Copy {pLib}CpcDos.dll {pOut}CpcDos.dll
+;-#Copy opengl32.dll {pOut}opengl32.dll
+;-#Copy {pContent} {pOut}files/
 >
 -#Run
 >

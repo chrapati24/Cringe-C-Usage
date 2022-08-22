@@ -1,0 +1,100 @@
+>
+-{vFlag}=""
+>
+-{pOut}=_out/cpp_{_sPlatform}_{_sOpt}/
+-{pObj}=obj/cpp_{_sPlatform}_{_sOpt}/
+>
+-{pSDL}=../src/
+-{pSDL_inc}=../include/
+-{pSDL_test}=../test/
+>
+-{vIncl}=
+-I {pSDL}
+-I {pSDL_inc}
+>
+;Build SDL base
+-c &{pSDL} -o {pObj}
+-{vIncl} -{vFlag}
+>
+;Build atomic
+-c &{pSDL}atomic/ -o {pObj}atomic/ 
+-{vIncl} -{vFlag}
+>
+;Build audio
+-c &{pSDL}audio/ -o {pObj}audio/ 
+-{vIncl} -{vFlag}
+>
+;Build core
+-c {pSDL}core/{sPlatform}/ -o {pObj}core/{sPlatform}/
+-{vIncl} -{vFlag}
+>
+;Build cpuinfo
+-c {pSDL}cpuinfo/ -o {pObj}cpuinfo/
+-{vIncl} -{vFlag}
+>
+;Build dynapi
+-c {pSDL}dynapi/ -o {pObj}dynapi/
+-{vIncl} -{vFlag}
+>
+;Build events
+-c {pSDL}events/ -o {pObj}events/
+-{vIncl} -{vFlag}
+>
+;Build file
+-c &{pSDL}file/ -o {pObj}file/
+-{vIncl} -{vFlag}
+>
+;Build haptic
+-c &{pSDL}haptic/ -o {pObj}haptic/
+-{vIncl} -{vFlag}
+>
+;Build joystick
+-c &{pSDL}joystick/ -o {pObj}joystick/
+-{vIncl} -{vFlag}
+|
+-c {pSDL}joystick/hidapi/ -o {pObj}joystick/hidapi/
+-{vIncl} -{vFlag}
+>
+;Build libm
+-c {pSDL}libm/ -o {pObj}libm/
+-{vIncl} -{vFlag}
+>
+;Build power
+-c &{pSDL}power/ -o {pObj}power/
+-{vIncl} -{vFlag}
+>
+;Build render
+-c {pSDL}render/software/ -o {pObj}render/software/
+-{vIncl} -{vFlag}
+>
+;Build sensor
+-c &{pSDL}sensor/ -o {pObj}sensor/
+-{vIncl} -{vFlag}
+|
+-c {pSDL}sensor/dummy/ -o {pObj}sensor/dummy/
+-{vIncl} -{vFlag}
+>
+;Build stdlib
+-c {pSDL}stdlib/ -o {pObj}stdlib/
+-{vIncl} -{vFlag}
+>
+;Build thread
+-c &{pSDL}thread/ -o {pObj}thread/
+-{vIncl} -{vFlag}
+>
+;Build timer
+-c &{pSDL}timer/ -o {pObj}timer/
+-{vIncl} -{vFlag}
+>
+;Build video
+;-c &{pSDL}video/ -o {pObj}video/ 
+;!{pSDL}video/SDL_egl.c
+;-{vIncl} -{vFlag}
+|
+-c {pSDL}video/yuv2rgb/ -o {pObj}video/yuv2rgb/
+-{vIncl} -{vFlag}
+|
+-c {pSDL}video/dummy/ -o {pObj}video/dummy/
+-{vIncl} -{vFlag}
+>
+

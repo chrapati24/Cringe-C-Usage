@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -31,13 +31,13 @@
 #include <X11/keysym.h>
 #include <X11/XKBlib.h>
 
-#include "../../events/imKStoUCS.h"
+#include "imKStoUCS.h"
 
 #ifdef X_HAVE_UTF8_STRING
 #include <locale.h>
 #endif
 
-/* *INDENT-OFF* */ /* clang-format off */
+/* *INDENT-OFF* */
 static const struct {
     KeySym keysym;
     SDL_Scancode scancode;
@@ -160,7 +160,7 @@ static const struct
     { xfree86_scancode_table2, SDL_arraysize(xfree86_scancode_table2) },
     { xvnc_scancode_table, SDL_arraysize(xvnc_scancode_table) },
 };
-/* *INDENT-OFF* */ /* clang-format off */
+/* *INDENT-OFF* */
 
 /* This function only works for keyboards in US QWERTY layout */
 static SDL_Scancode
@@ -205,7 +205,7 @@ X11_KeyCodeToUcs4(_THIS, KeyCode keycode, unsigned char group)
         return 0;
     }
 
-    return SDL_KeySymToUcs4(keysym);
+    return X11_KeySymToUcs4(keysym);
 }
 
 KeySym
@@ -266,14 +266,16 @@ X11_InitKeyboard(_THIS)
     int best_distance;
     int best_index;
     int distance;
-    Bool xkb_repeat = 0;
+    BOOL xkb_repeat = 0;
+    
+    X11_XAutoRepeatOn(data->display);
 
 #if SDL_VIDEO_DRIVER_X11_HAS_XKBKEYCODETOKEYSYM
     {
         int xkb_major = XkbMajorVersion;
         int xkb_minor = XkbMinorVersion;
 
-        if (X11_XkbQueryExtension(data->display, NULL, &data->xkb_event, NULL, &xkb_major, &xkb_minor)) {
+        if (X11_XkbQueryExtension(data->display, NULL, NULL, NULL, &xkb_major, &xkb_minor)) {
             data->xkb = X11_XkbGetMap(data->display, XkbAllClientInfoMask, XkbUseCoreKbd);
         }
 
@@ -394,7 +396,7 @@ X11_InitKeyboard(_THIS)
         }
     }
 
-    X11_UpdateKeymap(_this, SDL_FALSE);
+    X11_UpdateKeymap(_this);
 
     SDL_SetScancodeName(SDL_SCANCODE_APPLICATION, "Menu");
 
@@ -402,13 +404,11 @@ X11_InitKeyboard(_THIS)
     SDL_IME_Init();
 #endif
 
-    X11_ReconcileKeyboardState(_this);
-
     return 0;
 }
 
 void
-X11_UpdateKeymap(_THIS, SDL_bool send_event)
+X11_UpdateKeymap(_THIS)
 {
     SDL_VideoData *data = (SDL_VideoData *) _this->driverdata;
     int i;
@@ -468,7 +468,7 @@ X11_UpdateKeymap(_THIS, SDL_bool send_event)
             }
         }
     }
-    SDL_SetKeymap(0, keymap, SDL_NUM_SCANCODES, send_event);
+    SDL_SetKeymap(0, keymap, SDL_NUM_SCANCODES);
 }
 
 void
@@ -526,7 +526,7 @@ X11_StopTextInput(_THIS)
 }
 
 void
-X11_SetTextInputRect(_THIS, const SDL_Rect *rect)
+X11_SetTextInputRect(_THIS, SDL_Rect *rect)
 {
     if (!rect) {
         SDL_InvalidParamError("rect");

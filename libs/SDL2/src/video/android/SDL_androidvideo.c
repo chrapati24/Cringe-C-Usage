@@ -1,6 +1,6 @@
 /*
   Simple DirectMedia Layer
-  Copyright (C) 1997-2022 Sam Lantinga <slouken@libsdl.org>
+  Copyright (C) 1997-2018 Sam Lantinga <slouken@libsdl.org>
 
   This software is provided 'as-is', without any express or implied
   warranty.  In no event will the authors be held liable for any damages
@@ -22,11 +22,11 @@
 
 #if SDL_VIDEO_DRIVER_ANDROID
 
-/* Android SDL video driver implementation */
+/* Android SDL video driver implementation
+*/
 
 #include "SDL_video.h"
 #include "SDL_mouse.h"
-#include "SDL_hints.h"
 #include "../SDL_sysvideo.h"
 #include "../SDL_pixels_c.h"
 #include "../../events/SDL_events_c.h"
@@ -47,7 +47,7 @@
 /* Initialization/Query functions */
 static int Android_VideoInit(_THIS);
 static void Android_VideoQuit(_THIS);
-int Android_GetDisplayDPI(_THIS, SDL_VideoDisplay *display, float *ddpi, float *hdpi, float *vdpi);
+int Android_GetDisplayDPI(_THIS, SDL_VideoDisplay * display, float * ddpi, float * hdpi, float * vdpi);
 
 #include "../SDL_egl_c.h"
 #define Android_GLES_GetProcAddress SDL_EGL_GetProcAddress
@@ -60,15 +60,23 @@ int Android_GetDisplayDPI(_THIS, SDL_VideoDisplay *display, float *ddpi, float *
 
 
 /* These are filled in with real values in Android_SetScreenResolution on init (before SDL_main()) */
-int Android_SurfaceWidth           = 0;
-int Android_SurfaceHeight          = 0;
-static int Android_DeviceWidth     = 0;
-static int Android_DeviceHeight    = 0;
-static Uint32 Android_ScreenFormat = SDL_PIXELFORMAT_RGB565; /* Default SurfaceView format, in case this is queried before being filled */
-static int Android_ScreenRate      = 0;
-SDL_sem *Android_PauseSem          = NULL;
-SDL_sem *Android_ResumeSem         = NULL;
-SDL_mutex *Android_ActivityMutex   = NULL;
+int Android_SurfaceWidth = 0;
+int Android_SurfaceHeight = 0;
+int Android_DeviceWidth = 0;
+int Android_DeviceHeight = 0;
+Uint32 Android_ScreenFormat = SDL_PIXELFORMAT_UNKNOWN;
+static int Android_ScreenRate = 0;
+
+SDL_sem *Android_PauseSem = NULL, *Android_ResumeSem = NULL;
+
+/* Currently only one window */
+SDL_Window *Android_Window = NULL;
+
+static int
+Android_Available(void)
+{
+    return 1;
+}
 
 static void
 Android_SuspendScreenSaver(_THIS)
@@ -77,18 +85,17 @@ Android_SuspendScreenSaver(_THIS)
 }
 
 static void
-Android_DeleteDevice(SDL_VideoDevice *device)
+Android_DeleteDevice(SDL_VideoDevice * device)
 {
     SDL_free(device->driverdata);
     SDL_free(device);
 }
 
 static SDL_VideoDevice *
-Android_CreateDevice(void)
+Android_CreateDevice(int devindex)
 {
     SDL_VideoDevice *device;
     SDL_VideoData *data;
-    SDL_bool block_on_pause;
 
     /* Initialize all variables that we clean on shutdown */
     device = (SDL_VideoDevice *) SDL_calloc(1, sizeof(SDL_VideoDevice));
@@ -97,7 +104,7 @@ Android_CreateDevice(void)
         return NULL;
     }
 
-    data = (SDL_VideoData *) SDL_calloc(1, sizeof(SDL_VideoData));
+    data = (SDL_VideoData*) SDL_calloc(1, sizeof(SDL_VideoData));
     if (!data) {
         SDL_OutOfMemory();
         SDL_free(device);
@@ -109,27 +116,19 @@ Android_CreateDevice(void)
     /* Set the function pointers */
     device->VideoInit = Android_VideoInit;
     device->VideoQuit = Android_VideoQuit;
-    block_on_pause = SDL_GetHintBoolean(SDL_HINT_ANDROID_BLOCK_ON_PAUSE, SDL_TRUE);
-    if (block_on_pause) {
-        device->PumpEvents = Android_PumpEvents_Blocking;
-    } else {
-        device->PumpEvents = Android_PumpEvents_NonBlocking;
-    }
+    device->PumpEvents = Android_PumpEvents;
 
     device->GetDisplayDPI = Android_GetDisplayDPI;
 
     device->CreateSDLWindow = Android_CreateWindow;
     device->SetWindowTitle = Android_SetWindowTitle;
     device->SetWindowFullscreen = Android_SetWindowFullscreen;
-    device->MinimizeWindow = Android_MinimizeWindow;
-    device->SetWindowResizable = Android_SetWindowResizable;
     device->DestroyWindow = Android_DestroyWindow;
     device->GetWindowWMInfo = Android_GetWindowWMInfo;
 
     device->free = Android_DeleteDevice;
 
     /* GL pointers */
-#if SDL_VIDEO_OPENGL_EGL
     device->GL_LoadLibrary = Android_GLES_LoadLibrary;
     device->GL_GetProcAddress = Android_GLES_GetProcAddress;
     device->GL_UnloadLibrary = Android_GLES_UnloadLibrary;
@@ -139,7 +138,6 @@ Android_CreateDevice(void)
     device->GL_GetSwapInterval = Android_GLES_GetSwapInterval;
     device->GL_SwapWindow = Android_GLES_SwapWindow;
     device->GL_DeleteContext = Android_GLES_DeleteContext;
-#endif
 
 #if SDL_VIDEO_VULKAN
     device->Vulkan_LoadLibrary = Android_Vulkan_LoadLibrary;
@@ -170,36 +168,27 @@ Android_CreateDevice(void)
 
 VideoBootStrap Android_bootstrap = {
     ANDROID_VID_DRIVER_NAME, "SDL Android video driver",
-    Android_CreateDevice
+    Android_Available, Android_CreateDevice
 };
 
 
 int
 Android_VideoInit(_THIS)
 {
-    SDL_VideoData *videodata = (SDL_VideoData *)_this->driverdata;
-    int display_index;
-    SDL_VideoDisplay *display;
     SDL_DisplayMode mode;
 
-    videodata->isPaused  = SDL_FALSE;
-    videodata->isPausing = SDL_FALSE;
-    videodata->pauseAudio = SDL_GetHintBoolean(SDL_HINT_ANDROID_BLOCK_ON_PAUSE_PAUSEAUDIO, SDL_TRUE);
-
-    mode.format          = Android_ScreenFormat;
-    mode.w               = Android_DeviceWidth;
-    mode.h               = Android_DeviceHeight;
-    mode.refresh_rate    = Android_ScreenRate;
-    mode.driverdata      = NULL;
-
-    display_index = SDL_AddBasicVideoDisplay(&mode);
-    if (display_index < 0) {
+    mode.format = Android_ScreenFormat;
+    mode.w = Android_DeviceWidth;
+    mode.h = Android_DeviceHeight;
+    mode.refresh_rate = Android_ScreenRate;
+    mode.driverdata = NULL;
+    if (SDL_AddBasicVideoDisplay(&mode) < 0) {
         return -1;
     }
-    display = SDL_GetDisplay(display_index);
-    display->orientation = Android_JNI_GetDisplayOrientation();
 
     SDL_AddDisplayMode(&_this->displays[0], &mode);
+
+    Android_InitKeyboard();
 
     Android_InitTouch();
 
@@ -217,89 +206,51 @@ Android_VideoQuit(_THIS)
 }
 
 int
-Android_GetDisplayDPI(_THIS, SDL_VideoDisplay *display, float *ddpi, float *hdpi, float *vdpi)
+Android_GetDisplayDPI(_THIS, SDL_VideoDisplay * display, float * ddpi, float * hdpi, float * vdpi)
 {
     return Android_JNI_GetDisplayDPI(ddpi, hdpi, vdpi);
 }
 
 void
-Android_SetScreenResolution(int surfaceWidth, int surfaceHeight, int deviceWidth, int deviceHeight, float rate)
+Android_SetScreenResolution(int surfaceWidth, int surfaceHeight, int deviceWidth, int deviceHeight, Uint32 format, float rate)
 {
-    Android_SurfaceWidth  = surfaceWidth;
+	SDL_VideoDevice* device;
+	SDL_VideoDisplay *display;
+    Android_SurfaceWidth = surfaceWidth;
     Android_SurfaceHeight = surfaceHeight;
-    Android_DeviceWidth   = deviceWidth;
-    Android_DeviceHeight  = deviceHeight;
-    Android_ScreenRate    = (int)rate;
-}
+	Android_DeviceWidth = deviceWidth;
+	Android_DeviceHeight = deviceHeight;
+    Android_ScreenFormat = format;
+    Android_ScreenRate = rate;
 
-static
-Uint32 format_to_pixelFormat(int format) {
-    Uint32 pf;
-    if (format == AHARDWAREBUFFER_FORMAT_R8G8B8A8_UNORM) {  /* 1 */
-        pf = SDL_PIXELFORMAT_RGBA8888;
-    } else if (format == AHARDWAREBUFFER_FORMAT_R8G8B8X8_UNORM) { /* 2 */
-        pf = SDL_PIXELFORMAT_RGBX8888;
-    } else if (format == AHARDWAREBUFFER_FORMAT_R8G8B8_UNORM) { /* 3 */
-        pf = SDL_PIXELFORMAT_RGB24;
-    } else if (format == AHARDWAREBUFFER_FORMAT_R5G6B5_UNORM) { /* 4*/
-        pf = SDL_PIXELFORMAT_RGB565;
-    } else if (format == 5) {
-        pf = SDL_PIXELFORMAT_BGRA8888;
-    } else if (format == 6) {
-        pf = SDL_PIXELFORMAT_RGBA5551;
-    } else if (format == 7) {
-        pf = SDL_PIXELFORMAT_RGBA4444;
-    } else {
-        pf = SDL_PIXELFORMAT_UNKNOWN;
-    }
-    return pf;
-}
-
-void
-Android_SetFormat(int format_wanted, int format_got)
-{
-    Uint32 pf_wanted;
-    Uint32 pf_got;
-
-    pf_wanted = format_to_pixelFormat(format_wanted);
-    pf_got = format_to_pixelFormat(format_got);
-
-    Android_ScreenFormat = pf_got;
-
-    SDL_Log("pixel format wanted %s (%d), got %s (%d)",
-            SDL_GetPixelFormatName(pf_wanted), format_wanted,
-            SDL_GetPixelFormatName(pf_got), format_got);
-}
-
-void Android_SendResize(SDL_Window *window)
-{
     /*
       Update the resolution of the desktop mode, so that the window
       can be properly resized. The screen resolution change can for
       example happen when the Activity enters or exits immersive mode,
       which can happen after VideoInit().
     */
-    SDL_VideoDevice *device = SDL_GetVideoDevice();
+    device = SDL_GetVideoDevice();
     if (device && device->num_displays > 0)
     {
-        SDL_VideoDisplay *display          = &device->displays[0];
-        display->desktop_mode.format       = Android_ScreenFormat;
-        display->desktop_mode.w            = Android_DeviceWidth;
-        display->desktop_mode.h            = Android_DeviceHeight;
-        display->desktop_mode.refresh_rate = Android_ScreenRate;
+        display = &device->displays[0];
+        display->desktop_mode.format = Android_ScreenFormat;
+        display->desktop_mode.w = Android_DeviceWidth;
+        display->desktop_mode.h = Android_DeviceHeight;
+        display->desktop_mode.refresh_rate  = Android_ScreenRate;
     }
 
-    if (window) {
+    if (Android_Window) {
         /* Force the current mode to match the resize otherwise the SDL_WINDOWEVENT_RESTORED event
          * will fall back to the old mode */
-        SDL_VideoDisplay *display              = SDL_GetDisplayForWindow(window);
-        display->display_modes[0].format       = Android_ScreenFormat;
-        display->display_modes[0].w            = Android_DeviceWidth;
-        display->display_modes[0].h            = Android_DeviceHeight;
-        display->display_modes[0].refresh_rate = Android_ScreenRate;
-        display->current_mode                  = display->display_modes[0];
+        display = SDL_GetDisplayForWindow(Android_Window);
 
-        SDL_SendWindowEvent(window, SDL_WINDOWEVENT_RESIZED, Android_SurfaceWidth, Android_SurfaceHeight);
+        display->display_modes[0].format = format;
+        display->display_modes[0].w = Android_DeviceWidth;
+        display->display_modes[0].h = Android_DeviceHeight;
+        display->display_modes[0].refresh_rate = rate;
+        display->current_mode = display->display_modes[0];
+
+        SDL_SendWindowEvent(Android_Window, SDL_WINDOWEVENT_RESIZED, surfaceWidth, surfaceHeight);
     }
 }
 

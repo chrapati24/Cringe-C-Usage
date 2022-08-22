@@ -1,0 +1,138 @@
+-#Run Build_Common.cwc
+>
+-{sPlatform}=windows
+>
+-{vFlag}=
+;SDL_RENDER_DISABLED
+-DSDL_VIDEO_RENDER_OGL=1
+-DSDL_VIDEO_OPENGL_EGL=0
+-DSDL_VIDEO_RENDER_D3D=0
+-DSDL_VIDEO_RENDER_OGL_ES=0
+-DSDL_VIDEO_RENDER_OGL_ES2=0
+-DSDL_VIDEO_RENDER_DIRECTFB=0
+-DSDL_VIDEO_RENDER_METAL=0
+-DSDL_VIDEO_RENDER_PSP=0
+>
+-{pOut}=_out/cpp_{_sPlatform}_{_sOpt}/
+-{pObj}=obj/cpp_{_sPlatform}_{_sOpt}/
+>
+-{pSDL}=../src/
+-{pSDL_inc}=../include/
+-{pSDL_test}=../test/
+>
+-{sLink_lib}=
+-lgdi32 -lopengl32
+-lws2_32
+-lwinmm
+-lSetupapi
+-lOle32
+-lOleAut32
+-lImm32
+-lVersion
+>
+-{vIncl}=
+-I {pSDL}
+-I {pSDL_inc}
+>
+;Build audio
+-c &{pSDL}audio/directsound/ -o {pObj}audio/directsound/
+-{vIncl} -{vFlag}
+|
+-c &{pSDL}audio/wasapi/ -o {pObj}audio/wasapi/
+-{vIncl} -{vFlag}
+|
+-c &{pSDL}audio/disk/ -o {pObj}audio/disk/
+-{vIncl} -{vFlag}
+|
+-c &{pSDL}audio/winmm/ -o {pObj}audio/winmm/
+-{vIncl} -{vFlag}
+|
+-c &{pSDL}audio/dummy/ -o {pObj}audio/dummy/
+-{vIncl} -{vFlag}
+>
+;Build core
+-c {pSDL}core/{sPlatform}/ -o {pObj}core/{sPlatform}/
+-{vIncl} -{vFlag}
+>
+;Build filesystem
+-c {pSDL}filesystem/{sPlatform}/ -o {pObj}filesystem/{sPlatform}/
+-{vIncl} -{vFlag}
+>
+;Build haptic
+-c {pSDL}haptic/{sPlatform}/ -o {pObj}haptic/{sPlatform}/
+-{vIncl} -{vFlag}
+>
+;Build hidapi
+-c {pSDL}hidapi/{sPlatform}/ -o {pObj}hidapi/{sPlatform}/
+-{vIncl} -{vFlag}
+>
+;Build joystick
+-c {pSDL}joystick/{sPlatform}/ -o {pObj}joystick/{sPlatform}/
+-{vIncl} -{vFlag}
+>
+;Build loadso
+-c {pSDL}loadso/{sPlatform}/ -o {pObj}loadso/{sPlatform}/
+-{vIncl} -{vFlag}
+>
+;Build power
+-c {pSDL}power/{sPlatform}/ -o {pObj}power/{sPlatform}/
+-{vIncl} -{vFlag}
+>
+;Build render
+-c &{pSDL}render/ -o {pObj}render/
+-{vIncl} -{vFlag}
+|
+-c {pSDL}render/opengl/ -o {pObj}render/opengl/
+-{vIncl} -{vFlag}
+|
+-c {pSDL}render/direct3d/ -o {pObj}render/direct3d/
+-{vIncl} -{vFlag}
+|
+-c {pSDL}render/direct3d11/ -o {pObj}render/direct3d11/
+-{vIncl} -{vFlag}
+|
+-c {pSDL}render/software/ -o {pObj}render/software/
+-{vIncl} -{vFlag}
+>
+;Build thread
+-c {pSDL}thread/windows/ -o {pObj}thread/windows/
+-{vIncl} -{vFlag}
+|
+-c {pSDL}thread/generic/SDL_syscond.c -o {pObj}thread/generic/SDL_syscond.o
+-{vIncl} -{vFlag}
+>
+;Build timer
+-c {pSDL}timer/{sPlatform}/ -o {pObj}timer/{sPlatform}/
+-{vIncl} -{vFlag}
+>
+;Build video
+-c &{pSDL}video/ -o {pObj}video/ 
+-{vIncl} -{vFlag}
+|
+-c {pSDL}video/{sPlatform}/ -o {pObj}video/{sPlatform}/
+-{vIncl} -{vFlag}
+>
+;Build main
+-c {pSDL}main/{sPlatform}/ -o {pObj}main/{sPlatform}/
+-{vIncl} -{vFlag}
+>
+;Generate Dynamic Lib
+-o {pObj} -#To Lib/{_sPlatform}_{_sOpt}/SDL2.dll
+-{sLink_lib}
+>
+;Generate Static Lib
+-o {pObj} -#To Lib/{_sPlatform}_{_sOpt}/SDL2.a
+>
+;Build Test Example
+-c {pSDL}test/ -o {pObj}test/
+-{vIncl} -{vFlag}
+|
+-c {pSDL_test}testgl2.c  -o {pObj}test_main.o
+-DHAVE_OPENGL
+-{vIncl} -{vFlag}
+>
+;Generate executable
+-o {pObj} -#To {pOut}/App.*
+-{sLink_lib}
+>
+-#Run
