@@ -2,11 +2,11 @@
 >
 -{_sOpt}="Debug"
 >
--{_wToolchain}= VLianceTool/LibRT
+-{_wToolchain}= VLianceTool/LibRT[x64]
 >
 -{pOut}= output/{_sPlatform}/
 -{pObj}= obj/{_sPlatform}/
--{vLink_Lib}=-L libs/SDL2/lib/x86/
+-{vLink_Lib}=-L libs/SDL2/lib/x64/
 >
 -c src/ -o {pObj}src/
 -I libs/SDL2/
@@ -30,3 +30,6 @@
 >
 -#Run
 >
+
+
+
